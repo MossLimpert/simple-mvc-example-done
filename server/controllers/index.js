@@ -3,6 +3,7 @@ const models = require('../models');
 
 // get the Cat model
 const { Cat } = models;
+const { Dog } = models;
 
 // default fake data so that we have something to work with until we make a real Cat
 const defaultData = {
@@ -82,6 +83,17 @@ const hostPage2 = (req, res) => {
 const hostPage3 = (req, res) => {
   res.render('page3');
 };
+
+const hostPage4 = async (req, res) => {
+
+  try {
+    const docs = await Dog.find({}).lean().exec();
+    return res.render('page4', {dogs: docs});
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({error: 'failed to find dogs'});
+  }
+}
 
 // Get name will return the name of the last added cat.
 const getName = (req, res) => res.json({ name: lastAdded.name });
@@ -234,6 +246,62 @@ const updateLast = (req, res) => {
   });
 };
 
+const createDog = async (req, res) => {
+  if (!req.body.name || !req.body.age || !req.body.breed ) {
+    // If they are missing data, send back an error.
+    return res.status(400).json({ error: 'name, age, and breed are all required' });
+  }
+
+  const dogData = {
+    name: req.body.name,
+    age: req.body.age,
+    breed: req.body.breed
+  }
+
+  const newDog = new Dog(dogData);
+
+  try {
+    await newDog.save();
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ error: ""})
+  }
+
+  lastAdded = newDog;
+  return res.json({
+    name: lastAdded.name,
+    age: lastAdded.age,
+    breed: lastAdded.breed,
+  })
+}
+
+const searchForDog = async (req, res) => {
+  if (!req.query.name) {
+    return res.status(400).json({ error: 'Name is required to perform a search' });
+  }
+
+  let doc;
+
+  try {
+    doc = await Dog.findOne({ name: req.query.name}).exec();
+    doc.age = doc.age + 1;
+    await Dog.updateOne(doc);
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ error: 'Something went wrong' });
+  }
+
+  if (!doc) {
+    return res.json({ error: 'No dogs found'});
+  }
+
+  return res.json({
+    name: doc.name,
+    age: doc.age,
+    breed: doc.breed
+  })
+}
+
 // A function to send back the 404 page.
 const notFound = (req, res) => {
   res.status(404).render('notFound', {
@@ -247,9 +315,13 @@ module.exports = {
   page1: hostPage1,
   page2: hostPage2,
   page3: hostPage3,
+  page4: hostPage4,
   getName,
   setName,
   updateLast,
   searchName,
   notFound,
+
+  createDog,
+  searchForDog
 };
